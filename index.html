@@ -6,7 +6,7 @@
   <body>
     <div id="loginBanner"></div>
     <div id="ui" style="display:none">
-      (UI goes here...)
+      <ul id="list"></ul>
     </div>
   </body>
   <script src="https://solid.github.io/solid-auth-client/dist/solid-auth-client.bundle.js"></script>
@@ -43,9 +43,22 @@
           if (pair.substring(0, KEY_PREFIX.length) === KEY_PREFIX) {
             const url = pair.substring(KEY_PREFIX.length)
             console.log('resource opened', url)
-            const response = await solid.auth.fetch(url);
+            const response = await solid.auth.fetch(url, {
+              headers: {
+                'Accept': 'text/turtle'
+              }
+            });
             const body = await response.text()
             console.log(body)
+            const store = new $rdf.IndexedFormula
+            const urlSym = store.sym(url);
+            const urlDoc  = urlSym.doc();
+            $rdf.parse(body, store, urlDoc.uri, `text/turtle`);
+            const quads = store.match(urlSym, store.sym('http://www.w3.org/ns/ldp#contains'), null, urlDoc);
+            if (quads.length < 1) {
+              console.log('did not find ldp:contains links in the container description')
+            }
+            document.getElementById('list').innerHTML = quads.map(quad => `<li><a href="?#resource=${quad.object.value}">${quad.object.value}</a></li>`).join('\n')
             // const wssUrl = response.headers.get('Updates-Via')
           }
         })
@@ -53,7 +66,11 @@
         let session = await solid.auth.currentSession();
         if (session) {
           console.log('determining your pim:storage')
-          const profileResponse = await solid.auth.fetch(session.webId)
+          const profileResponse = await solid.auth.fetch(session.webId, {
+            headers: {
+              'Accept': 'text/turtle'
+            }
+          })
           const profileBody = await profileResponse.text()
           console.log(profileBody)
           const store = new $rdf.IndexedFormula
@@ -64,7 +81,8 @@
           if (quads.length < 1) {
             console.log('did not find pim:storage link in your profile')
           }
-          const pimStorage = quads[0].object.value
+          const pimStorage = quads[0].object.value + 'public/' // work around https://github.com/solid/node-solid-server/issues/1120
+          
           console.log('browsing to your pim:storage', pimStorage)
           window.location = '#resource=' + pimStorage
           openResource()
