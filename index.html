@@ -41,7 +41,7 @@
         pairs.map(async (pair) => {
           console.log(pair, pair.substring(0, KEY_PREFIX.length), KEY_PREFIX)
           if (pair.substring(0, KEY_PREFIX.length) === KEY_PREFIX) {
-            const url = pair.substring(KEY_PREFIX.length)
+            const url = decodeURIComponent(pair.substring(KEY_PREFIX.length))
             console.log('resource opened', url)
             const response = await solid.auth.fetch(url, {
               headers: {
@@ -58,7 +58,16 @@
             if (quads.length < 1) {
               console.log('did not find ldp:contains links in the container description')
             }
-            document.getElementById('list').innerHTML = quads.map(quad => `<li><a href="?#resource=${quad.object.value}">${quad.object.value}</a></li>`).join('\n')
+            document.getElementById('list').innerHTML = quads.map(quad => {
+              if (quad.object.value.substr(-1) === '/') {
+                return `<li><a href="?#resource=${quad.object.value}">${quad.object.value}</a></li>`
+              } else {
+                encodedResourceUrl = encodeURIComponent(url + quad.object.value)
+                return `${quad.object.value} - open with: ` +
+                  `<a href="https://solid-notify.5apps.com/#resource=${encodedResourceUrl}">solid-notify</a> ` +
+                  `<a href="https://solid-rdf-viewer.5apps.com/#resource=${encodedResourceUrl}">solid-rdf-viewer</a> `
+              }
+            }).join('\n')
             // const wssUrl = response.headers.get('Updates-Via')
           }
         })
